@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>𝙎𝘼𝙆𝘼.𝙑1</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            background-image: url('galaxy.jpg'); /* Ganti dengan nama file gambar galaxy Anda */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            overflow: hidden;
+        }
+
+        .dino {
+            position: absolute;
+            bottom: 0;
+            left: 50px;
+            width: 100px;
+            height: 200px;
+            background-image: url('dino.png');
+            background-size: cover;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 0;
+            right: -200px;
+            width: 60px;
+            height: 70px;
+            background-image: url('obstacle.png');
+            background-size: cover;
+        }
+
+        .score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            font-family: 'Roboto', sans-serif;
+            color: white;
+        }
+
+        .jump {
+            animation: jump 1s forwards;
+        }
+
+        @keyframes jump {
+            0% { bottom: 0; }
+            90% { bottom: 300px; }
+            100% { bottom: 0; }
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #startScreen h1 {
+            color: #ffffff;
+            font-size: 2.5rem;
+            font-family: 'Roboto', sans-serif;
+            margin-bottom: 20px;
+        }
+
+        #startScreen input {
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        #startScreen button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        #leaderboard {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            color: white;
+        }
+
+        /* Style untuk gambar Game Over */
+        #gameOverImage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px; /* Sesuaikan ukuran gambar */
+            display: none; /* Tersembunyi secara default */
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>Welcome to Dino Game</h1>
+        <input type="text" id="username" placeholder="Enter your username">
+        <button id="startButton">Start Game</button>
+    </div>
+
+    <audio id="jumpSound" src="jump-sound.mp3" preload="auto"></audio>
+    <audio id="backgroundMusic" src="meong.mp3" preload="auto" loop></audio>
+
+    <div class="game-container">
+        <div class="dino" id="dino"></div>
+        <div class="obstacle" id="obstacle"></div>
+        <div class="score" id="score">Score: 0</div>
+        <div id="leaderboard" style="display: none;"></div>
+        <!-- Gambar Game Over -->
+        <img id="gameOverImage" src="game-over.jpg" alt="Game Over"> <!-- Ganti dengan gambar .jpg Anda -->
+    </div>
+
+    <script>
+        let dino = document.getElementById("dino");
+        let obstacle = document.getElementById("obstacle");
+        let scoreDisplay = document.getElementById("score");
+        let leaderboardDisplay = document.getElementById("leaderboard");
+        let score = 0;
+        let isJumping = false;
+        let gameOver = false;
+        let isGameStarted = false;
+        let jumpSound = document.getElementById("jumpSound");
+        let backgroundMusic = document.getElementById("backgroundMusic");
+        let currentUsername = "";
+
+        // Leaderboard setup
+        let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+
+        function renderLeaderboard() {
+            leaderboardDisplay.innerHTML = "<h3>Leaderboard</h3>";
+            leaderboard.slice(0, 5).forEach((entry, index) => {
+                leaderboardDisplay.innerHTML += `<div>${index + 1}. ${entry.username} - ${entry.score}</div>`;
+            });
+        }
+
+        document.getElementById("startButton").addEventListener("click", function () {
+            const usernameInput = document.getElementById("username").value.trim();
+            if (!usernameInput) {
+                alert("Please enter your username to start!");
+                return;
+            }
+            currentUsername = usernameInput;
+            isGameStarted = true;
+            document.getElementById("startScreen").style.display = "none";
+            leaderboardDisplay.style.display = "block";
+            backgroundMusic.volume = 0.5;
+            backgroundMusic.play();
+            renderLeaderboard();
+            resetGame(); // Mengatur ulang game saat dimulai
+        });
+
+        function jump() {
+            if (!isGameStarted || isJumping || gameOver) return;
+            isJumping = true;
+            dino.classList.add("jump");
+            jumpSound.currentTime = 0;
+            jumpSound.play();
+            setTimeout(() => {
+                dino.classList.remove("jump");
+                isJumping = false;
+            }, 1000);
+        }
+
+        function updateScore() {
+            score++;
+            scoreDisplay.innerText = "Score: " + score;
+        }
+
+        function updateLeaderboard() {
+            leaderboard.push({ username: currentUsername, score: score });
+            leaderboard.sort((a, b) => b.score - a.score); // Sort by score descending
+            localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+            renderLeaderboard();
+        }
+
+        function checkCollision() {
+            if (!isGameStarted) return;
+
+            const dinoRect = dino.getBoundingClientRect();
+            const obstacleRect = obstacle.getBoundingClientRect();
+
+            if (
+                dinoRect.x < obstacleRect.x + obstacleRect.width &&
+                dinoRect.x + dinoRect.width > obstacleRect.x &&
+                dinoRect.bottom > obstacleRect.top
+            ) {
+                gameOver = true;
+                updateLeaderboard();
+                showGameOverImage(); // Menampilkan gambar game over
+                setTimeout(resetGame, 2000); // Mengatur ulang permainan setelah 2 detik
+            }
+        }
+
+        function resetGame() {
+            // Reset game tanpa kembali ke start screen
+            score = 0;
+            scoreDisplay.innerText = "Score: 0";
+            gameOver = false;
+            obstacle.style.right = "-200px"; // Reset posisi obstacle
+            dino.style.bottom = "0px"; // Reset posisi dinosaurus
+            document.getElementById("gameOverImage").style.display = "none"; // Sembunyikan gambar game over
+        }
+
+        function showGameOverImage() {
+            // Menampilkan gambar game over
+            document.getElementById("gameOverImage").style.display = "block";
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.code === "Space") jump();
+        });
+
+        document.addEventListener("touchstart", jump);
+
+        let obstacleSpeed = 3;
+        setInterval(() => {
+            if (!isGameStarted || gameOver) return;
+
+            let obstacleRight = parseInt(getComputedStyle(obstacle).right);
+            obstacle.style.right = (obstacleRight + obstacleSpeed) + "px";
+
+            if (obstacleRight > window.innerWidth) {
+                obstacle.style.right = "-40px";
+                updateScore();
+            }
+
+            checkCollision();
+        }, 10);
+    </script>
+</body>
+</html>
